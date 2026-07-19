@@ -41,7 +41,13 @@ def _scheduled_since() -> dt.date | None:
 @shared_task(name="rates.tasks.ingest_rates", bind=True, max_retries=3, default_retry_delay=30)
 def ingest_rates(self):
     try:
-        stats = ingest(SeedFileSource(str(_seed_path()), since=_scheduled_since()))
+        stats = ingest(
+            SeedFileSource(
+                str(_seed_path()),
+                since=_scheduled_since(),
+                batch_size=settings.INGEST_BATCH_SIZE,
+            )
+        )
         invalidate_latest()
         return stats.as_dict()
     except Exception as exc:  # pragma: no cover - retry path

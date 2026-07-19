@@ -173,19 +173,34 @@ exactly the rule the history chart already uses. So the board's sparkline and th
 drill-in chart always agree, and `change_30d` is the sparkline's own last − first, so
 the chip can never disagree with the line it sits next to.
 
-**Deploy: one platform keeping the real worker + beat, not a mocked-out subset.** The
-live target is Railway (six services: web, worker, beat, frontend, Postgres, Redis),
-chosen over a truly-free managed split precisely to keep the Celery worker + beat
-running — the production-shaped topology. The honest cost: Railway bills usage against
-a small credit, so this isn't indefinitely free (documented in [DEPLOY.md](DEPLOY.md)).
-Two small, backward-compatible changes make it portable: settings now accept a single
-`DATABASE_URL` (managed hosts supply one) and fall back to the discrete `POSTGRES_*`
-vars local compose sets; and the seed/scheduled-ingest can be bounded to a window.
+**Deploy: one platform keeping the real worker, not a mocked-out subset.** The live
+target is Railway, chosen over a truly-free managed split precisely to keep a real
+Celery worker running the scheduled ingest rather than faking it. Two small,
+backward-compatible changes make it portable: settings accept a single `DATABASE_URL`
+(managed hosts supply one) and fall back to the discrete `POSTGRES_*` vars local
+compose sets; and the seed/scheduled-ingest can be bounded to a window.
 
-**The deploy seeds a bounded, representative slice.** The full seed is ~1M rows with a
-JSONB raw payload each — heavier than a free tier wants. `seed_data --since 2026-01-01`
-(and `SEED_SINCE` for the scheduled re-ingest) loads all 10 providers × 5 rate types
-over the seed's dense region, so the dashboard looks full while staying light. I used a
+*What actually shipped differs from the six-service ideal, and the gap is the
+interesting part.* Railway's free plan caps a project at 5 resources, so the deployed
+topology is **five** services — `beat` is folded into the worker as `celery worker
+--beat` rather than running as its own process. Local `docker compose` still runs the
+full six-service split, which stays the canonical topology; the merge is a deploy-tier
+concession, not a design change. Celery's docs call embedded beat a development
+convenience (one scheduler process is fine here because the worker is single-replica,
+but it would not survive horizontal scaling — with two replicas you would get two
+schedulers and duplicate ingests). Splitting `beat` back out is a one-line change once
+the plan allows a 6th resource. See [DEPLOY.md](DEPLOY.md) for the exact settings.
+
+**The deploy seeds a bounded, representative slice — sized by measurement, not guess.**
+The full seed is ~1M rows with a JSONB raw payload each, far heavier than a free tier
+wants. The deployed slice is `--since 2026-03-01` (~47.7k source rows): all 10 providers
+× 5 rate types, enough for sparklines and the 30-day delta, on a 500 MB volume. That
+number was arrived at the hard way — `--since 2026-01-01` (~156k rows) exhausted the
+volume mid-load and left Postgres crash-looping, because WAL churn during a bulk insert
+needs headroom well beyond the final table size. Two knobs came out of it: `SEED_SINCE`
+bounds the scheduled re-ingest, and `INGEST_BATCH_SIZE` bounds *peak memory* (a whole
+batch is materialised as Python objects before the bulk insert — 50k rows peaked at
+~590 MB RSS and got the 1 GB worker OOM-killed; 5k peaks at ~430 MB). I used a
 *fixed* `--since` date rather than a clock-relative `--days` on purpose: the seed is
 static and its dense data ends before "today", so a fixed date targets it regardless of
 the deploy server's clock. Loading stays idempotent, so a re-run or the scheduled task

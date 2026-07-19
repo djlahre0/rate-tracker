@@ -1,0 +1,42 @@
+# Build context for the backend image is the repo root (see backend/Dockerfile),
+# so the excludes that used to live in backend/.dockerignore belong here. The
+# frontend builds from ./frontend and keeps its own frontend/.dockerignore.
+#
+# Do NOT exclude data/ — the seed parquet is deliberately baked into the backend
+# image so the scheduled ingest works without a volume mount.
+
+# --- VCS / tooling ---
+.git/
+.gitignore
+.gitattributes
+.dockerignore
+
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Python ---
+**/__pycache__/
+**/*.py[cod]
+**/.venv/
+**/venv/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/htmlcov/
+**/.coverage
+**/.coverage.*
+**/coverage.xml
+
+# --- Node / Next.js (frontend isn't part of the backend image) ---
+frontend/
+**/node_modules/
+**/.next/
+
+# --- Docs / scratch ---
+*.md
+Makefile
+docker-compose.yml
+tmp/
+**/*.log

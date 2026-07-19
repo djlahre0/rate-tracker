@@ -46,7 +46,10 @@ services:
       retries: 10
 
   web:
-    build: ./backend
+    # Context is the repo root (not ./backend) so the image can carry data/.
+    build: &backend-build
+      context: .
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     environment:
       <<: *backend-env
@@ -71,7 +74,7 @@ services:
         condition: service_healthy
 
   worker:
-    build: ./backend
+    build: *backend-build
     restart: unless-stopped
     environment:
       <<: *backend-env
@@ -88,7 +91,7 @@ services:
         condition: service_healthy  # ensures migrations are applied first
 
   beat:
-    build: ./backend
+    build: *backend-build
     restart: unless-stopped
     environment:
       <<: *backend-env

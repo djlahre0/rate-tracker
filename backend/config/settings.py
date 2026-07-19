@@ -116,6 +116,11 @@ SLOW_QUERY_SECONDS = env.get("SLOW_QUERY_SECONDS", default="0.2", cast=float)
 # fallback for a real live source. SEED_SINCE wins when both are set; empty/0 = full.
 SEED_SINCE = env.get("SEED_SINCE", default="", cast=str).strip()
 SEED_SINCE_DAYS = env.get("SEED_SINCE_DAYS", default=0, cast=int)
+# Rows pulled from the seed parquet per batch. Peak memory scales with this: a
+# whole batch is materialised as Python objects before the bulk insert. The
+# default suits a dev box; a memory-capped container (a 1 GB Railway worker)
+# wants ~5_000, which measured ~430 MB peak RSS vs ~590 MB at 50_000.
+INGEST_BATCH_SIZE = env.get("INGEST_BATCH_SIZE", default=50_000, cast=int)
 
 # --- Misc ------------------------------------------------------------------
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

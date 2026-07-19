@@ -18,8 +18,10 @@ parquet seed / HTTP scraper  →  idempotent ingestion (clean + quarantine)
 
 See [DECISIONS.md](DECISIONS.md) for the engineering rationale (assumptions,
 idempotency, tradeoffs) and [schema.md](schema.md) for the database design. A live
-deploy to Railway (keeping the full worker + beat topology) is documented in
-[DEPLOY.md](DEPLOY.md) — optional; local `docker compose up` stays the canonical path.
+deploy to Railway (a real Celery worker running the scheduled ingest, with beat
+embedded to fit the free plan's 5-resource cap) is documented in
+[DEPLOY.md](DEPLOY.md) — optional; local `docker compose up` stays the canonical
+path and keeps worker and beat as separate services.
 
 ---
 
