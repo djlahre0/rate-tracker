@@ -1,0 +1,14 @@
+# Runtime dependencies — pinned to the latest stable minor as of 2026-07-19.
+# Installed with pip inside the Docker image (Python 3.13). See DECISIONS.md
+# for why pip + pinned requirements over uv/poetry (reviewer universality).
+Django==6.0.*
+djangorestframework==3.17.*
+psycopg[binary]==3.3.*
+celery[redis]==5.6.*
+redis==5.*
+django-environ==0.12.*
+django-cors-headers==4.*
+python-json-logger==3.*
+pyarrow==25.*
+httpx==0.28.*
+gunicorn==23.*

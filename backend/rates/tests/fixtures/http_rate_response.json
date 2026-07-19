@@ -1,0 +1,10 @@
+{
+  "provider": "HSBC",
+  "rate_type": "savings_1yr_fixed",
+  "rate_value": 4.7647,
+  "effective_date": "2025-01-12",
+  "ingestion_ts": "2025-01-12T22:34:05Z",
+  "currency": "USD",
+  "source_url": "https://www.hsbc.com/rates/savings_1yr_fixed",
+  "raw_response_id": "8868d928-f83a-4088-980e-0b55fcba21ec"
+}
