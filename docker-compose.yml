@@ -1,0 +1,120 @@
+# Every value below falls back to a working local default (${VAR:-default}), so a
+# fresh clone comes up with a plain "docker compose up" and no .env. A root .env
+# (see .env.example), if present, overrides these via Compose interpolation.
+x-backend-env: &backend-env
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me-to-a-long-random-string}
+  DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
+  INGEST_API_TOKEN: ${INGEST_API_TOKEN:-change-me-bearer-token}
+  POSTGRES_DB: ${POSTGRES_DB:-ratetracker}
+  POSTGRES_USER: ${POSTGRES_USER:-rates}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-db-password}
+  POSTGRES_HOST: ${POSTGRES_HOST:-db}
+  POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+  RATE_OUTLIER_CEILING: ${RATE_OUTLIER_CEILING:-25}
+  SLOW_QUERY_SECONDS: ${SLOW_QUERY_SECONDS:-0.2}
+  INGEST_INTERVAL_SECONDS: ${INGEST_INTERVAL_SECONDS:-3600}
+  CELERY_TASK_ALWAYS_EAGER: ${CELERY_TASK_ALWAYS_EAGER:-false}
+
+services:
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ratetracker}
+      POSTGRES_USER: ${POSTGRES_USER:-rates}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-db-password}
+    volumes:
+      # Postgres 18+ expects the mount at /var/lib/postgresql (data lands in a
+      # version subdir), enabling in-place pg_upgrade without mount-boundary issues.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-rates} -d $${POSTGRES_DB:-ratetracker}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+      RUN_MIGRATIONS: "true"
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
+    volumes:
+      - ./data:/data:ro
+    ports:
+      - "8000:8000"
+    healthcheck:
+      # Cheap /api/healthz probe (no DB). Passing means migrations ran (entrypoint)
+      # and gunicorn is serving, so dependents can gate on service_healthy.
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/healthz')\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+      RUN_MIGRATIONS: "false"
+    command: celery -A config worker --loglevel=info
+    volumes:
+      - ./data:/data:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_healthy  # ensures migrations are applied first
+
+  beat:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+      RUN_MIGRATIONS: "false"
+    command: celery -A config beat --loglevel=info
+    volumes:
+      - ./data:/data:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_healthy  # ensures migrations are applied first
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      web:
+        condition: service_healthy  # don't serve the UI before the API is ready
+
+volumes:
+  pgdata:
