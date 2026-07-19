@@ -1,0 +1,177 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ *
+ *  The Rates Desk — design tokens
+ *  A precision financial instrument: slate ink + a restrained brass
+ *  signature, with emerald/coral reserved strictly for rate movement.
+ * ------------------------------------------------------------------ */
+
+@theme {
+  /* Typefaces (next/font injects the --font-* CSS vars on <html>). */
+  --font-display: var(--font-space-grotesk), "Segoe UI", system-ui, sans-serif;
+  --font-sans: var(--font-plex-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Semantic colors → utilities (bg-surface, text-ink, border-line …).
+     Each maps to a switchable --c-* var so the same utility follows the theme. */
+  --color-paper: var(--c-paper);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-ink: var(--c-ink);
+  --color-ink-soft: var(--c-ink-soft);
+  --color-muted: var(--c-muted);
+  --color-line: var(--c-line);
+  --color-line-strong: var(--c-line-strong);
+  --color-brass: var(--c-brass);
+  --color-brass-bright: var(--c-brass-bright);
+  --color-brass-soft: var(--c-brass-soft);
+  --color-gain: var(--c-gain);
+  --color-gain-soft: var(--c-gain-soft);
+  --color-loss: var(--c-loss);
+  --color-loss-soft: var(--c-loss-soft);
+  --color-ring: var(--c-ring);
+}
+
+/* Light — "Desk Daylight" (default / system-light) */
+:root {
+  --c-paper: #f6f8fa;
+  --c-surface: #ffffff;
+  --c-surface-2: #eef2f6;
+  --c-ink: #101820;
+  --c-ink-soft: #3a4854;
+  --c-muted: #697887;
+  --c-line: #e3e8ee;
+  --c-line-strong: #cdd6de;
+  --c-brass: #916419;
+  --c-brass-bright: #b7842b;
+  --c-brass-soft: #f2e8d4;
+  --c-gain: #0b7a52;
+  --c-gain-soft: #dff3ea;
+  --c-loss: #bd3e2a;
+  --c-loss-soft: #f8e3dd;
+  --c-ring: #b7842b;
+  color-scheme: light;
+}
+
+/* Dark — "Desk After Hours" (brass on slate). Applied when the user forces
+   dark, or when the system is dark and the user hasn't forced light. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --c-paper: #0a1017;
+    --c-surface: #101922;
+    --c-surface-2: #16212c;
+    --c-ink: #e9eef3;
+    --c-ink-soft: #b0bcc8;
+    --c-muted: #7c8a97;
+    --c-line: #212e3a;
+    --c-line-strong: #364552;
+    --c-brass: #e0ac4e;
+    --c-brass-bright: #e7b860;
+    --c-brass-soft: #241b0e;
+    --c-gain: #34c98d;
+    --c-gain-soft: #10271e;
+    --c-loss: #f07658;
+    --c-loss-soft: #2a1611;
+    --c-ring: #e0ac4e;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --c-paper: #0a1017;
+  --c-surface: #101922;
+  --c-surface-2: #16212c;
+  --c-ink: #e9eef3;
+  --c-ink-soft: #b0bcc8;
+  --c-muted: #7c8a97;
+  --c-line: #212e3a;
+  --c-line-strong: #364552;
+  --c-brass: #e0ac4e;
+  --c-brass-bright: #e7b860;
+  --c-brass-soft: #241b0e;
+  --c-gain: #34c98d;
+  --c-gain-soft: #10271e;
+  --c-loss: #f07658;
+  --c-loss-soft: #2a1611;
+  --c-ring: #e0ac4e;
+  color-scheme: dark;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Base
+ * ------------------------------------------------------------------ */
+html {
+  background: var(--color-paper);
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Numbers are the subject — align them everywhere they carry meaning. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* The "board label" texture: a small, tracked, monospaced eyebrow. */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+/* Visible, on-brand keyboard focus across the whole app. */
+:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Restrained motion — a couple of orchestrated entrances, nothing more. */
+@keyframes desk-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes desk-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.82);
+  }
+}
+
+.animate-rise {
+  animation: desk-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.live-dot {
+  animation: desk-pulse 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise,
+  .live-dot,
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
