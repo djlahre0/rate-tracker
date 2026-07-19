@@ -42,4 +42,4 @@ Thumbs.db
 
 # --- Local scratch ---
 *.log
-tmp
+tmp/
