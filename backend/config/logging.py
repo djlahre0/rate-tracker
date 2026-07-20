@@ -1,7 +1,8 @@
 """Structured JSON logging config.
 
-Every log line is JSON via python-json-logger; there's no print anywhere in the
-codebase. extra={...} fields on a log call surface as top-level JSON keys.
+Every log line is JSON via python-json-logger; no application code uses print (the
+one exception is rates/tests/fixtures/make_fixture.py, a standalone dev script that
+never runs in the app). extra={...} fields on a log call surface as top-level JSON keys.
 """
 
 

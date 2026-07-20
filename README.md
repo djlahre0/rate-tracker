@@ -13,7 +13,7 @@ parquet seed / HTTP scraper  →  idempotent ingestion (clean + quarantine)
 
 - Backend: Django 6, DRF 3.17, Celery 5.6, PostgreSQL 18, Redis 8, Python 3.13
 - Frontend: Next.js 16, React 19, Recharts, SWR, Node 24 — "the rates desk": a
-  light/dark financial dashboard (KPI strip, live status, responsive to 375px)
+  light/dark financial dashboard (KPI strip, live status, dedicated mobile layout)
 - Everything runs with one `docker compose up`.
 
 See [DECISIONS.md](DECISIONS.md) for the engineering rationale (assumptions,
@@ -123,7 +123,8 @@ The frontend is type-checked and built as part of its Docker image.
   and the short TTL is only a safety net.
 - Bearer token via a small DRF auth class, not a DB-backed User/Token table — the
   right weight for a machine webhook. See the tradeoff in DECISIONS.md.
-- Structured JSON logging, no `print`; a middleware warns on any SQL query over 200ms.
+- Structured JSON logging, no `print` in application code; a middleware warns on any
+  SQL query over 200ms.
 
 ---
 
@@ -144,9 +145,8 @@ frontend test suite. The backend carries the test weight by design.
 
 ```
 backend/    Django project (config/) + rates app (models, ingestion, sources, api, tests)
-            + railway.json
-frontend/   Next.js dashboard (app/, components/, lib/) + railway.json
+frontend/   Next.js dashboard (app/, components/, lib/) + its own railway.json
 data/       rates_seed.parquet (mounted read-only into the containers)
-docs/       assessment brief + design spec + implementation plan
 DECISIONS.md · schema.md · DEPLOY.md · docker-compose.yml · Makefile · .env.example
+railway.json (root: the shared backend build config, per DEPLOY.md)
 ```

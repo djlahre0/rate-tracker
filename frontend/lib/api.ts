@@ -30,11 +30,6 @@ export async function fetcher<T>(url: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export function latestUrl(type?: string): string {
-  const suffix = type ? `?type=${encodeURIComponent(type)}` : "";
-  return `${BASE}/api/rates/latest${suffix}`;
-}
-
 export function summaryUrl(type?: string): string {
   const suffix = type ? `?type=${encodeURIComponent(type)}` : "";
   return `${BASE}/api/rates/summary${suffix}`;

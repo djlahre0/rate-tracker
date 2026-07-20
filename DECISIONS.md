@@ -81,21 +81,26 @@ input size.
 | 3 | Null rate | `rate_value = null` (200 rows) | Quarantine as `null_rate` |
 | 4 | Negative rate | down to −1.84% (15 rows) | Quarantine as `non_positive_rate` |
 | 5 | Absurd outlier | up to 97.4% (15 rows) | Quarantine as `outlier_rate` (> 25%) |
-| 6 | Future effective date | up to 2026-09-22 (17 rows) | Quarantine as `future_effective_date` |
+| 6 | Future effective date | 2026-07-26 → 2026-09-22 (17 rows as of 2026-07-20) | Quarantine as `future_effective_date` |
 | 7 | Business-key duplicates | many readings per provider+type+day | Kept — real observations, deduped only on `raw_response_id` |
 
 Quarantine, not drop. Rejected rows aren't silently discarded: they stay in
-`raw_rate_response` with `status='rejected'` and a reason code, alongside the full raw
+`raw_rate_response` with `status='rejected'` and a reason code, alongside the raw
 payload. So a fix to the cleaning rules can replay them, and an operator can query
 exactly why any row was dropped. This covers the HTTP scraper too: a timeout, HTTP
-error, or unparseable body is landed as a `scrape_failed` reject (with its URL and
-error) under a deterministic id, so the scraper path has the same replay guarantee as
-the seed path. Two more guards handle feeds dirtier than the seed: an unknown currency
-is quarantined (`unknown_currency`) rather than coerced into a wrong 3-letter code,
-and a missing or unparseable `raw_response_id` is landed under a payload-derived
-deterministic id (`bad_response_id`) instead of crashing the batch. Against the real
+error, or unparseable body is landed as a `scrape_failed` reject under a deterministic
+id, so the scraper path has the same replay guarantee as the seed path — though for an
+unparseable body what we retain is the URL and the parse error, not the original bytes.
+Two more guards handle feeds dirtier than the seed: an unknown currency is quarantined
+(`unknown_currency`) rather than coerced into a wrong 3-letter code, and on the feed and
+scraper paths a missing or unparseable `raw_response_id` is landed under a
+payload-derived deterministic id (`bad_response_id`) instead of crashing the batch. (The
+ingest webhook is the exception: it validates synchronously and rejects inline, so a
+caller that omits `raw_response_id` gets a fresh id rather than a payload-derived one —
+replay convergence there depends on the caller sending a stable id.) Against the real
 1M-row file the counts are `null_rate: 200, future_effective_date: 17,
-outlier_rate: 15, non_positive_rate: 15`, which matches the data profile.
+outlier_rate: 15, non_positive_rate: 15` (the future-dated count measured 2026-07-20;
+it falls as those dates pass), which matches the data profile.
 
 ---
 
@@ -130,8 +135,9 @@ the latest versions all the dependencies fully support, not the newest possible.
 Replace the 60-second polling refresh with Server-Sent Events pushed from an
 ingest-triggered signal, because polling is both stale and wasteful.
 
-Today the dashboard re-fetches `/rates/latest` every 60s whether or not anything
-changed, and a rate can be up to 60s stale on screen. With more time I'd:
+Today the dashboard re-fetches `/api/rates/summary` (and `/api/rates/history` for the
+drill-in chart) every 60s whether or not anything changed, and a rate can be up to 60s
+stale on screen. With more time I'd:
 
 1. On a successful ingest (webhook or scheduled), publish an event to a Redis pub/sub
    channel. I already invalidate the cache at exactly that point, so the hook exists.
@@ -169,9 +175,13 @@ for the head value, and one window-function query for the sparklines.
 My first cut used `today − 30 days`, which returns almost nothing on this seed (dense
 data ends ~2026-03, "today" is 2026-07). The fix: take the most recent 30 distinct
 dates that *have data* per series (a `ROW_NUMBER()` over the daily-collapsed rows) —
-exactly the rule the history chart already uses. So the board's sparkline and the
-drill-in chart always agree, and `change_30d` is the sparkline's own last − first, so
-the chip can never disagree with the line it sits next to.
+the same rule the history endpoint applies to its default window. So the board's
+sparkline and the drill-in chart show the same window, and `change_30d` is the
+sparkline's own last − first, so the chip can never disagree with the line it sits next
+to. The two are separate implementations, though — `ROW_NUMBER()` for the summary, a
+`DISTINCT`-and-slice for history — and history only anchors to data when the caller
+supplies no `from`/`to`. Sharing one code path (and a test asserting the two windows
+match) is the obvious hardening.
 
 **Deploy: one platform keeping the real worker, not a mocked-out subset.** The live
 target is Railway, chosen over a truly-free managed split precisely to keep a real
@@ -217,7 +227,8 @@ assessment run, but each matters for a real feed:
   isn't auto-promoted once its date passes; its raw record stays flagged and would
   need a manual replay. The other reject reasons (null, negative, outlier,
   missing-date) are deterministic and never flip, so only future-dated rows are
-  affected, and the seed's future rows stay future well past the assessment window.
+  affected. The seed's future rows run 2026-07-26 → 2026-09-22, so the count decays as
+  those dates pass — a re-run after 2026-09-22 quarantines none of them.
 - **Ingestion assumes a single writer.** `landed`/`promoted`/`rejected` are computed
   as DB deltas, which are exact single-threaded; a manual `seed_data` overlapping the
   hourly Beat task could over-report the counts (DB state and idempotency are
